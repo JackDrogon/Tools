@@ -1,0 +1,16 @@
+#!/bin/sh
+
+t=()
+
+while IFS= read -r file; do
+	[ ! -f "$file" ] && t+=("$file") && /usr/bin/touch "$file"
+	file=$(echo $(cd $(dirname "$file") && pwd -P)/$(basename "$file"))
+done <<<"$(printf '%s\n' "$@")"
+
+$(/usr/bin/open -a /Applications/Emacs.app "$@") &
+
+if [ ! -z "$t" ]; then
+	$(/bin/sleep 10; for file in "${t[@]}"; do
+		[ ! -s "$file" ] && /bin/rm "$file";
+	done) &
+fi

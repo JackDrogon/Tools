@@ -1,0 +1,23 @@
+#!/usr/bin/env expect
+# -*- coding:utf-8 -*-
+# vim: se sw=8 ts=8 ft=expect:
+
+# read password
+set path [file dirname $argv0]
+set spawn_file [lindex $argv 0]
+set params [lreplace $argv 0 0]
+set user_conf [append path "/../Setting/Conf/user.conf"]
+#puts stdout $user_conf
+source $user_conf
+
+spawn $spawn_file {*}$params
+
+set timeout -1
+while { 1 } {
+    expect {
+        "*(yes/no)?" { send "yes\r" }
+        "*assword:" { send "$password\r" }
+        $name: { send "$password\r" }
+        eof { break  }
+    }
+}

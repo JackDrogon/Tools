@@ -10,7 +10,7 @@ Dir.foreach(CASKROOM) do |cask_name|
   # potentially have others, such as ".DS_Store" if they've trashed anything
   # there).
   next if cask_name.chr == '.'
-  puts "Caskname: #{cask_name}"
+  # puts "Caskname: #{cask_name}"
 
   # Get the info for the cask and find the newest version.
   cask_location  = File.join(CASKROOM, cask_name)

@@ -13,6 +13,7 @@
 # TODO: load exception
 # TODO: dump, first bak && check file
 # TODO: Add log
+# TODO: Add extension name check
 
 # require 'thor'
 require 'fileutils'
@@ -31,7 +32,6 @@ HELP_INFO  = <<END
 END
 
 IGNORE_FILEEXTENSIONS = [".c", ".cc", ".cpp", ".h", ".hpp"]
-
 
 class CDSource
   DirOrFile = Struct.new(:name, :level)
@@ -172,8 +172,6 @@ def main()
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIR, ARGV[0], MAX_LEVEL
     cd_source.search()
   end
-
-  # cd_source_ GithubSourceDir, @find_name, 0
 end
 
 trap(:INT) { puts "Exit ..."; exit(1); }

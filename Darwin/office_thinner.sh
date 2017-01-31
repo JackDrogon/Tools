@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# https://raw.githubusercontent.com/goodbest/OfficeThinner/master/OfficeThinner.sh
+
 # This script is only for Office 2016 for Mac.
 # Tested on Office version 15.16 (151105)
 # Tested on Office version 15.17 (151206)

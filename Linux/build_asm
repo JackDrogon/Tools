@@ -1,0 +1,11 @@
+#!/bin/sh
+
+program=$(echo $1 | cut -d. -f 1)
+
+AS="as --32"
+LD="ld -m elf_i386 -dynamic-linker /lib/ld-linux.so.2 -lc"
+RM="rm -f"
+
+${AS} -gstabs -o "${program}.o" "${program}.s"
+${LD} -o "${program}" "${program}.o"
+${RM} "${program}.o"

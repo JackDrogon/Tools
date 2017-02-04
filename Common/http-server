@@ -1,0 +1,126 @@
+#!/bin/sh
+
+# TODO: use color output
+# TODO: use getopt
+
+# http-server: private Web/CGI server using python or ruby
+
+name=http-server
+
+#
+# HTTP/CGI servers
+#
+python2_server() {
+	echo "Python2 http/cgi server"
+	echo "Serving HTTP on $2 port $3 ..."
+	"$1" <<-!
+	import cgi
+	import BaseHTTPServer,CGIHTTPServer
+	http = BaseHTTPServer.HTTPServer(('$2', $3), CGIHTTPServer.CGIHTTPRequestHandler)
+	http.serve_forever()
+	!
+}
+
+python3_server() {
+	echo "Python3 http/cgi server"
+	"$1" -m http.server --cgi --bind $2 $3
+}
+
+ruby_server() {
+	echo "Ruby WEBrick http/cgi server"
+	echo "Serving HTTP on $2 port $3 ..."
+	"$1" <<-!
+	require 'webrick'
+	include WEBrick
+	http = HTTPServer.new(
+		:DocumentRoot => './',
+		:BindAddress => '$2',
+		:Port => $3
+	)
+	trap("INT") {
+		http.shutdown
+	}
+	http.start
+	!
+}
+#
+# Utilities
+#
+find_command() {
+	for d in `echo "$PATH" | sed -e 's/^:/.:/' -e 's/:$/:./' \
+		-e 's/::/:.:/' -e 's/:/ /g'`
+	do
+		if [ -x "$d/$1" ]; then
+			echo "$d/$1"
+			break
+		fi
+	done
+}
+
+# Parse arguments
+#
+bind=0.0.0.0
+port=8000
+use=
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	-b|--bind)	shift; bind=$1;;
+	-u|--use)	shift; use=$1;;
+	--use=*)	use=$(echo $1 | sed 's/--use=//');;
+	--bind=*)	bind=$(echo $1 | sed 's/--bind=//');;
+	--help|-*)
+		echo "usage: $name [-b|--bind ip][-u use][port]"; exit 0;;
+	*)
+		port=$1;;
+	esac
+	shift
+done
+
+case $use in
+''|python|ruby)
+	;;
+*)	echo "Invalid language name '$use'."; exit 1;;
+esac
+
+case $port in
+[0-9]|[0-9][0-9]|[0-9][0-9][0-9]|[0-9][0-9][0-9][0-9]|[0-9][0-9][0-9][0-9][0-9])
+	;;
+*)	echo "Invalid port number '$port'."; exit 1;;
+esac
+
+#
+# Main procedure
+#
+if [ "$use" != 'ruby' ]; then
+	python=$(find_command python)
+	if [ "$python" != '' ]; then
+		case $($python --version 2>&1) in
+		*'command not found')
+			echo "$python not found."; exit 1;;
+		Python' '2.*)
+			python2_server $python $bind $port; exit 0;;
+		Python' '3.*)
+			python3_server $python $bind $port; exit 0;;
+		*)
+			echo "This version of python is not supported."; exit 1;;
+		esac
+	fi
+fi
+
+if [ "$use" != 'python' ]; then
+	ruby=$(find_command ruby)
+	if [ "$ruby" != '' ]; then
+		case $($ruby --version 2>&1) in
+		*'command not found')
+			echo "$ruby not found."; exit 1;;
+		ruby' '1.[89]*|ruby' '2.*)
+			ruby_server $ruby $bind $port; exit 0;;
+		*)
+			echo "This version of ruby is not supported."; exit 1;;
+		esac
+	fi
+fi
+
+echo "Suitable Python or Ruby not found."
+exit 1

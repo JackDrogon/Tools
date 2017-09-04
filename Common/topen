@@ -1,0 +1,20 @@
+#!/bin/sh
+
+usage() {
+	echo "use to to create a file && open"
+	echo "to #{filename}"
+}
+
+if [ $1 = "-h" ]; then
+	usage
+	exit 0
+fi
+
+for file in "$*"; do
+	file=$1
+	basedir=$(dirname $file)
+
+	mkdir -p $basedir || exit 1
+	touch $file || exit 1
+	open $file
+done

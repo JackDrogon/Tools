@@ -2,7 +2,10 @@
 # -*- coding:utf-8 -*-
 # vim: se sw=8 ts=8 ft=expect:
 
-# read password
+# TODO: read password
+# TODO: Add setting LC_ALL=C preveting zh_CN
+# TODO: Add debug
+# TODO: Move conf to default conf && Add option for conf
 set path [file dirname $argv0]
 set spawn_file [lindex $argv 0]
 set params [lreplace $argv 0 0]

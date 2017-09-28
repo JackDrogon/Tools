@@ -8,7 +8,8 @@ require 'packetfu'
 puts "Simple sniffer for PacketFu #{PacketFu.version}"
 include PacketFu
 
-iface = ARGV[0] || "eth0"
+config = PacketFu::Utils.whoami?()
+iface = ARGV[0] || config[:iface]
 
 def sniff(iface)
   cap = Capture.new(:iface => iface, :start => true)
@@ -24,7 +25,7 @@ end
 
 sniff(iface)
 
-=begin 
+=begin
 Results look like this:
 145.58.33.95    -> 192.168.11.70   1514 TCP
 212.233.158.76  -> 192.168.11.70   110  UDP
@@ -41,4 +42,4 @@ Results look like this:
 8.8.8.8         -> 192.168.11.70   128  UDP
 8.8.8.8         -> 192.168.11.70   187  UDP
 24.45.247.232   -> 192.168.11.70   70   TCP
-=end 
+=end

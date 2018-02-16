@@ -16,6 +16,7 @@
 # TODO: Add extension name check
 
 # require 'thor'
+require 'pstore'
 require 'fileutils'
 
 CACHE_FILE = "#{ENV['HOME']}/.cs_cache"
@@ -38,31 +39,41 @@ class CDSource
 
   def initialize(cache_file, search_dir, find_name, level)
     @cache_file, @search_dir, @find_name, @max_level, @cache = cache_file, search_dir, find_name, level, {}
-    if File.exist? @cache_file
-      File.open(@cache_file) do |file|
-        begin
-          @cache = Marshal.load(file)
-        rescue
-          @cache = {}
-        end
-      end
-    else
-      FileUtils.touch @cache_file
+    @cache = PStore.new @cache_file
+  end
+
+  def exist(key)
+    @cache.transaction(true) do
+      @cache.root? key
     end
   end
 
+  def get(key)
+    value=nil
+    @cache.transaction(true) do
+      value = @cache.fetch(key, nil)
+    end
+    value
+  end
+
   def set(key, value)
-    @cache[key] = trip_home(value)
-    dump
+    @cache.transaction do
+      @cache[key] = trip_home(value)
+    end
   end
 
   def delete(key)
-    @cache.delete(key)
-    dump
+    @cache.transaction do
+      @cache.delete(key)
+    end
   end
 
   def list()
-    @cache.each {|k, v| puts "#{k} => #{v}"}
+    @cache.transaction(true) do
+      @cache.roots.each do |k|
+        puts "#{k} => #{@cache[k]}"
+      end
+    end
   end
 
   def search
@@ -87,30 +98,14 @@ class CDSource
     File.exist?(file) && ! File.directory?(file)
   end
 
-  def dump
-    # check file size, ignore empty size
-    FileUtils.mv @cache_file, @cache_file+".bak", :force => true
-    File.open(@cache_file, "w+") do |file|
-      Marshal.dump(@cache, file)
-    end
-    File.open(@cache_file) do |file|
-      begin
-        Marshal.load(file)
-      rescue
-        FileUtils.cp @cache_file+".bak", @cache_file, :force => true
-      end
-    end
-  end
-
   def search_cache
-    if @cache[@find_name]
-      rpath = real_path(@cache[@find_name])
+    if exist(@find_name)
+      rpath = real_path(get(@find_name))
       if Dir.exist?(rpath) or File.exist?(rpath)
         puts rpath
         true
       else
-        @cache.delete(@find_name)
-        dump
+        delete(@find_name)
         false
       end
     else

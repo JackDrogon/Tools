@@ -20,8 +20,7 @@ require 'pstore'
 require 'fileutils'
 
 CACHE_FILE = "#{ENV['HOME']}/.cs_cache"
-SOURCE_DIR = "#{ENV['HOME']}/Source"
-GITHUB_SOURCE_DIR = "#{ENV['HOME']}/Source/Github"
+SOURCE_DIRS = ["#{ENV['HOME']}/Source", "#{ENV['HOME']}/Source/Github"]
 MAX_LEVEL = 6
 
 HELP_INFO  = <<END
@@ -37,8 +36,9 @@ IGNORE_FILEEXTENSIONS = [".c", ".cc", ".cpp", ".h", ".hpp"]
 class CDSource
   DirOrFile = Struct.new(:name, :level)
 
-  def initialize(cache_file, search_dir, find_name, level)
-    @cache_file, @search_dir, @find_name, @max_level, @cache = cache_file, search_dir, find_name, level, {}
+  def initialize(cache_file, search_dirs, find_name, level)
+    @cache_file, @find_name, @max_level = cache_file, find_name, level
+    @search_dirs = Array === search_dirs ? search_dirs : [search_dirs]
     @cache = PStore.new @cache_file
   end
 
@@ -114,33 +114,35 @@ class CDSource
   end
 
   def search_dir
-    dirs = [DirOrFile.new(@search_dir, 1)]
+    @search_dirs.each do |sdir|
+      dirs = [DirOrFile.new(sdir, 1)]
 
-    while !dirs.empty?
-      d = dirs.shift
-      next if d.level > @max_level
+      while !dirs.empty?
+        d = dirs.shift
+        next if d.level > @max_level
 
-      name = d.name.split("/").last
-      # if name == src_7z || name == src
-      if name =~ /^#{@find_name}((\.|(-[0-9]+)).*)?$/
-        # puts src, "name", /^#{src}((\.|-?).*)?$/
-        if not IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
-          set(@find_name, d.name)
-          puts d.name
-          return
+        name = d.name.split("/").last
+        # if name == src_7z || name == src
+        if name =~ /^#{@find_name}((\.|(-[0-9]+)).*)?$/
+          # puts src, "name", /^#{src}((\.|-?).*)?$/
+          if not IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
+            set(@find_name, d.name)
+            puts d.name
+            return
+          end
         end
-      end
 
-      next unless File.directory? d.name
+        next unless File.directory? d.name
 
-      if is_git?(d.name)
-        if name == @find_name
-          set(@find_name, d.name)
-          puts d.name
-          return
+        if is_git?(d.name)
+          if name == @find_name
+            set(@find_name, d.name)
+            puts d.name
+            return
+          end
+        else
+          Dir["#{d.name}/*"].each{|dir| dirs << DirOrFile.new(dir, d.level+1)}
         end
-      else
-        Dir["#{d.name}/*"].each{|dir| dirs << DirOrFile.new(dir, d.level+1)}
       end
     end
   end
@@ -152,19 +154,19 @@ end
 def main()
   case ARGV[0]
   when "--list"
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIR, nil, MAX_LEVEL
+    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.list()
   when "--delete"
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIR, nil, MAX_LEVEL
+    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.delete(ARGV[1])
   when "--set"
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIR, nil, MAX_LEVEL
+    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.set(ARGV[1], ARGV[2])
   when "--help", "-h"
     puts HELP_INFO
     exit 1
   else
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIR, ARGV[0], MAX_LEVEL
+    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, ARGV[0], MAX_LEVEL
     cd_source.search()
   end
 end

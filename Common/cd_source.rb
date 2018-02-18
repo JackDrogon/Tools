@@ -42,6 +42,20 @@ class CDSource
     @cache = PStore.new @cache_file
   end
 
+  def list()
+    @cache.transaction(true) do
+      @cache.roots.each do |k|
+        puts "#{k} => #{@cache[k]}"
+      end
+    end
+  end
+
+  def search
+    return if search_cache
+    search_dir
+  end
+
+  private
   def exist(key)
     @cache.transaction(true) do
       @cache.root? key
@@ -68,20 +82,6 @@ class CDSource
     end
   end
 
-  def list()
-    @cache.transaction(true) do
-      @cache.roots.each do |k|
-        puts "#{k} => #{@cache[k]}"
-      end
-    end
-  end
-
-  def search
-    return if search_cache
-    search_dir
-  end
-
-  private
   def trip_home(v)
     v.sub ENV["HOME"], "~"
   end

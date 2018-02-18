@@ -43,7 +43,7 @@ def backup_file(filename)
   FileUtils.mv filename, dest_filename
 end
 
-def trims_all_same_files(dir1, dir2)
+def trim_all_same_files(dir1, dir2)
   same_files = find_same_files(dir1, dir2)
   same_files.each do |filename|
     backup_file dir2+filename
@@ -52,13 +52,13 @@ def trims_all_same_files(dir1, dir2)
 end
 
 if Process.euid != 0
-  puts "Need root priviledge, Please run: sudo ruby #{__FILE__}"
+  puts "Need root privilege, Please run: sudo ruby #{__FILE__}"
   exit 1
 end
 
 PATHS[1,PATHS.length].each do |pathname|
   puts "#{PATHS[0]}, #{pathname}"
-  trims_all_same_files(PATHS[0], pathname)
+  trim_all_same_files(PATHS[0], pathname)
 end
 puts "Office thinning completed!"
 puts "Backup files in #{TRASH}"

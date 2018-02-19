@@ -19,11 +19,11 @@
 require 'pstore'
 require 'fileutils'
 
-CACHE_FILE = "#{ENV['HOME']}/.cs_cache"
-SOURCE_DIRS = ["#{ENV['HOME']}/Source", "#{ENV['HOME']}/Source/Github"]
+CACHE_FILE = "#{ENV['HOME']}/.cs_cache".freeze
+SOURCE_DIRS = ["#{ENV['HOME']}/Source", "#{ENV['HOME']}/Source/Github"].freeze
 MAX_LEVEL = 6
 
-HELP_INFO  = <<END
+HELP_INFO = <<END.freeze
 --delete key
 --set key dir
 --list
@@ -31,18 +31,20 @@ HELP_INFO  = <<END
 --help/-h
 END
 
-IGNORE_FILEEXTENSIONS = [".c", ".cc", ".cpp", ".h", ".hpp"]
+IGNORE_FILEEXTENSIONS = ['.c', '.cc', '.cpp', '.h', '.hpp'].freeze
 
 class CDSource
   DirOrFile = Struct.new(:name, :level)
 
   def initialize(cache_file, search_dirs, find_name, level)
-    @cache_file, @find_name, @max_level = cache_file, find_name, level
+    @cache_file = cache_file
+    @find_name = find_name
+    @max_level = level
     @search_dirs = Array === search_dirs ? search_dirs : [search_dirs]
     @cache = PStore.new @cache_file
   end
 
-  def list()
+  def list
     @cache.transaction(true) do
       @cache.roots.each do |k|
         puts "#{k} => #{@cache[k]}"
@@ -56,6 +58,7 @@ class CDSource
   end
 
   private
+
   def exist(key)
     @cache.transaction(true) do
       @cache.root? key
@@ -63,7 +66,7 @@ class CDSource
   end
 
   def get(key)
-    value=nil
+    value = nil
     @cache.transaction(true) do
       value = @cache.fetch(key, nil)
     end
@@ -83,11 +86,11 @@ class CDSource
   end
 
   def trip_home(v)
-    v.sub ENV["HOME"], "~"
+    v.sub ENV['HOME'], '~'
   end
 
   def real_path(v)
-    v.sub "~", ENV["HOME"]
+    v.sub '~', ENV['HOME']
   end
 
   def is_git?(dir)
@@ -95,13 +98,13 @@ class CDSource
   end
 
   def is_7z?(file)
-    File.exist?(file) && ! File.directory?(file)
+    File.exist?(file) && !File.directory?(file)
   end
 
   def search_cache
     if exist(@find_name)
       rpath = real_path(get(@find_name))
-      if Dir.exist?(rpath) or File.exist?(rpath)
+      if Dir.exist?(rpath) || File.exist?(rpath)
         puts rpath
         true
       else
@@ -117,15 +120,15 @@ class CDSource
     @search_dirs.each do |sdir|
       dirs = [DirOrFile.new(sdir, 1)]
 
-      while !dirs.empty?
+      until dirs.empty?
         d = dirs.shift
         next if d.level > @max_level
 
-        name = d.name.split("/").last
+        name = d.name.split('/').last
         # if name == src_7z || name == src
         if name =~ /^#{@find_name}((\.|(-[0-9]+)).*)?$/
           # puts src, "name", /^#{src}((\.|-?).*)?$/
-          if not IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
+          unless IGNORE_FILEEXTENSIONS.include? Regexp.last_match(1) # 应该主动识别是不是压缩文件
             set(@find_name, d.name)
             puts d.name
             return
@@ -141,7 +144,7 @@ class CDSource
             return
           end
         else
-          Dir["#{d.name}/*"].each{|dir| dirs << DirOrFile.new(dir, d.level+1)}
+          Dir["#{d.name}/*"].each { |dir| dirs << DirOrFile.new(dir, d.level + 1) }
         end
       end
     end
@@ -151,28 +154,26 @@ end
 # class CDSourceCLI < Thor
 # end
 
-def main()
+def main
   case ARGV[0]
-  when "--list"
+  when '--list'
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
-    cd_source.list()
-  when "--delete"
+    cd_source.list
+  when '--delete'
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.delete(ARGV[1])
-  when "--set"
+  when '--set'
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.set(ARGV[1], ARGV[2])
-  when "--help", "-h"
+  when '--help', '-h'
     puts HELP_INFO
     exit 1
   else
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, ARGV[0], MAX_LEVEL
-    cd_source.search()
+    cd_source.search
   end
 end
 
-trap(:INT) { puts "Exit ..."; exit(1); }
+trap(:INT) { puts 'Exit ...'; exit(1); }
 
-if $0 == __FILE__
-  main
-end
+main if $PROGRAM_NAME == __FILE__

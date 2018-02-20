@@ -42,26 +42,6 @@ class CDSource
     @cache = PStore.new @cache_file
   end
 
-  def list()
-    @cache.transaction(true) do
-      @cache.roots.each do |k|
-        puts "#{k} => #{@cache[k]}"
-      end
-    end
-  end
-
-  def search
-    return if search_cache
-    search_dir
-  end
-
-  private
-  def exist(key)
-    @cache.transaction(true) do
-      @cache.root? key
-    end
-  end
-
   def get(key)
     value=nil
     @cache.transaction(true) do
@@ -79,6 +59,26 @@ class CDSource
   def delete(key)
     @cache.transaction do
       @cache.delete(key)
+    end
+  end
+
+  def list()
+    @cache.transaction(true) do
+      @cache.roots.each do |k|
+        puts "#{k} => #{@cache[k]}"
+      end
+    end
+  end
+
+  def search
+    return if search_cache
+    search_dir
+  end
+
+  private
+  def exist(key)
+    @cache.transaction(true) do
+      @cache.root? key
     end
   end
 

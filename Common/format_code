@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# TODO: check clang-format exist
+
+# C++
+# au BufNewFile,BufRead *.cxx,*.c++,*.hh,*.hxx,*.hpp,*.ipp,*.moc,*.tcc,*.inl setf cpp
+# "fname_case"
+# au BufNewFile,BufRead *.C,*.H setf cpp
+
+# TODO: print0, ag use print0 from pipe
+find . | grep -E '\.(h|c|cc|cpp|cxx|c\+\+|hh|hxx|hpp|ipp|moc|tcc|inl|C|H)$' | xargs -n1 clang-format -i

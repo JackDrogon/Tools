@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/local/opt/ruby/bin/ruby
 
 # TODO: Parallel... ThreadPool
 # TODO: Add list all history
@@ -33,8 +33,28 @@ END
 
 IGNORE_FILEEXTENSIONS = [".c", ".cc", ".cpp", ".h", ".hpp"]
 
+module Helper
+  def trip_home(v)
+    v.sub ENV["HOME"], "~"
+  end
+
+  def real_path(v)
+    v.sub "~", ENV["HOME"]
+  end
+
+  def is_git?(dir)
+    Dir.exist? "#{dir}/.git"
+  end
+
+  def is_7z?(file)
+    File.exist?(file) && ! File.directory?(file)
+  end
+end
+
 class CDSource
   DirOrFile = Struct.new(:name, :level)
+
+  include Helper
 
   def initialize(cache_file, search_dirs, find_name, level)
     @cache_file, @find_name, @max_level = cache_file, find_name, level
@@ -80,22 +100,6 @@ class CDSource
     @cache.transaction(true) do
       @cache.root? key
     end
-  end
-
-  def trip_home(v)
-    v.sub ENV["HOME"], "~"
-  end
-
-  def real_path(v)
-    v.sub "~", ENV["HOME"]
-  end
-
-  def is_git?(dir)
-    Dir.exist? "#{dir}/.git"
-  end
-
-  def is_7z?(file)
-    File.exist?(file) && ! File.directory?(file)
   end
 
   def search_cache

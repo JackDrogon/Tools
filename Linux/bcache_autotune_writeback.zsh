@@ -10,6 +10,7 @@ HIGHWATER_SIZE=$((61 * $G)) # 61G
 WRITEBACK_PERCENT=7 # 830 * 7% = 58.66
 WRITE_MAGNIFICATION=3
 TIGGER_GC_SLEEP_TIME=15
+CHECK_DURATION=45
 
 device::_get_data_size() {
 	local device_num=$1
@@ -147,7 +148,7 @@ main() {
 			device_num=${block_cache#/sys/block/bcache}
 			device::check $device_num
 		done
-		sleep 45
+		sleep "${CHECK_DURATION}"
 	done
 }
 main

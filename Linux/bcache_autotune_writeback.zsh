@@ -10,7 +10,7 @@ HIGHWATER_SIZE=$((61 * $G)) # 61G
 WRITEBACK_PERCENT=7 # 830 * 7% = 58.66
 DEVICE_NUM=4
 
-device::get_data_size() {
+device::_get_data_size() {
 	local device_num=$1
 
 	local dirty_data="$(cat /sys/block/bcache$device_num/bcache/dirty_data)"
@@ -35,19 +35,19 @@ device::get_data_size() {
 	esac
 }
 
-device::get_cache_available_percent() {
+device::_get_cache_available_percent() {
 	local device_num=$1
 
 	cat "/sys/block/bcache${device_num}/bcache/cache/cache_available_percent"
 }
 
-device::get_writeback_percent() {
+device::_get_writeback_percent() {
 	local device_num=$1
 
 	cat "/sys/block/bcache${device_num}/bcache/writeback_percent"
 }
 
-device::set_writeback_percent() {
+device::_set_writeback_percent() {
 	local device_num=$1
 	local writeback_percent=$2
 
@@ -57,41 +57,56 @@ device::set_writeback_percent() {
 device::handle_highwater() {
 	local device_num=$1
 
-	local current_writeback_percent=$(device::get_writeback_percent ${device_num})
+	local current_writeback_percent=$(device::_get_writeback_percent ${device_num})
 	if [[ $current_writeback_percent = 0 ]]; then
 		return
 	fi
 
-	device::set_writeback_percent "${device_num}" 0
+	device::_set_writeback_percent "${device_num}" 0
+}
+
+device::_maybe_trigger_bcache_gc() {
+	# lowwater && current_cache_available_percent low
+	# lowwater guaranteed by caller
+	local device_num=$1
+
+	local current_cache_available_percent=$(device::_get_cache_available_percent ${device_num})
+	if [[ $current_cache_available_percent -le $((100 - $WRITEBACK_PERCENT*3)) ]]; then
+		echo "Cache available percent so small: ${current_cache_available_percent}, trigger_gc"
+		echo
+
+		echo 1 > /sys/block/bcache${device_num}/bcache/cache/internal/trigger_gc
+	fi
 }
 
 device::handle_lowwater() {
 	local device_num=$1
 
-	local current_writeback_percent=$(device::get_writeback_percent ${device_num})
+	local current_writeback_percent=$(device::_get_writeback_percent ${device_num})
 	if [[ $current_writeback_percent != 0 ]]; then
+		device::_maybe_trigger_bcache_gc "${device_num}"
 		return
 	fi
 
-	device::set_writeback_percent "${device_num}" "${WRITEBACK_PERCENT}"
+	device::_set_writeback_percent "${device_num}" "${WRITEBACK_PERCENT}"
 }
 
 device::handle_custom() {
 	local device_num=$1
 
-	local current_writeback_percent=$(device::get_writeback_percent ${device_num})
+	local current_writeback_percent=$(device::_get_writeback_percent ${device_num})
 	if [[ $current_writeback_percent = 0 ]]; then
 		echo "Reduce"
 		echo
 		return
 	fi
 
-	local current_cache_available_percent=$(device::get_cache_available_percent ${device_num})
+	local current_cache_available_percent=$(device::_get_cache_available_percent ${device_num})
 	if [[ $current_cache_available_percent -le $((100 - $WRITEBACK_PERCENT*3)) ]]; then
 		echo "Cache available percent so small: ${current_cache_available_percent}"
 		echo
 
-		device::set_writeback_percent "${device_num}" 0
+		device::_set_writeback_percent "${device_num}" 0
 	else
 		echo "Grow"
 		echo
@@ -101,7 +116,7 @@ device::handle_custom() {
 device::check() {
 	local device_num=$1
 
-	local data_size=$(device::get_data_size $device_num)
+	local data_size=$(device::_get_data_size $device_num)
 
 	echo $data_size
 

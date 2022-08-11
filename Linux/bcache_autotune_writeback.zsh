@@ -8,7 +8,6 @@ T=$((1024 * $G))
 LOWWATER_SIZE=$((45 * $M)) # 45M
 HIGHWATER_SIZE=$((61 * $G)) # 61G
 WRITEBACK_PERCENT=7 # 830 * 7% = 58.66
-DEVICE_NUM=4
 WRITE_MAGNIFICATION=3
 TIGGER_GC_SLEEP_TIME=15
 
@@ -142,8 +141,10 @@ device::check() {
 }
 
 main() {
+	local device_num=0
 	while true; do
-		for device_num in $(seq 0 ${DEVICE_NUM}); do
+		for block_cache in /sys/block/bcache*; do
+			device_num=${block_cache#/sys/block/bcache}
 			device::check $device_num
 		done
 		sleep 45

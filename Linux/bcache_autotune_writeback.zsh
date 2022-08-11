@@ -9,6 +9,8 @@ LOWWATER_SIZE=$((45 * $M)) # 45M
 HIGHWATER_SIZE=$((61 * $G)) # 61G
 WRITEBACK_PERCENT=7 # 830 * 7% = 58.66
 DEVICE_NUM=4
+WRITE_MAGNIFICATION=3
+TIGGER_GC_SLEEP_TIME=15
 
 device::_get_data_size() {
 	local device_num=$1
@@ -71,11 +73,12 @@ device::_maybe_trigger_bcache_gc() {
 	local device_num=$1
 
 	local current_cache_available_percent=$(device::_get_cache_available_percent ${device_num})
-	if [[ $current_cache_available_percent -le $((100 - $WRITEBACK_PERCENT*3)) ]]; then
+	if [[ $current_cache_available_percent -le $((100 - $WRITEBACK_PERCENT * $WRITE_MAGNIFICATION)) ]]; then
 		echo "Cache available percent so small: ${current_cache_available_percent}, trigger_gc"
 		echo
 
 		echo 1 > /sys/block/bcache${device_num}/bcache/cache/internal/trigger_gc
+		sleep "${TIGGER_GC_SLEEP_TIME}" # Add sleep for bcache do gc work
 	fi
 }
 

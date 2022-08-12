@@ -8,9 +8,17 @@ T=$((1024 * $G))
 LOWWATER_SIZE=$((45 * $M)) # 45M
 HIGHWATER_SIZE=$((61 * $G)) # 61G
 WRITEBACK_PERCENT=7 # 830 * 7% = 58.66
-WRITE_MAGNIFICATION=3
+WRITE_MAGNIFICATION=3.5
 TIGGER_GC_SLEEP_TIME=15
 CHECK_DURATION=45
+
+
+
+_get_lowest_cache_available_percent() {
+	echo $((100 - $WRITEBACK_PERCENT * $WRITE_MAGNIFICATION))
+}
+
+
 
 device::_get_data_size() {
 	local device_num=$1
@@ -73,7 +81,7 @@ device::_maybe_trigger_bcache_gc() {
 	local device_num=$1
 
 	local current_cache_available_percent=$(device::_get_cache_available_percent ${device_num})
-	if [[ $current_cache_available_percent -le $((100 - $WRITEBACK_PERCENT * $WRITE_MAGNIFICATION)) ]]; then
+	if [[ $current_cache_available_percent -le "$(_get_lowest_cache_available_percent)" ]]; then
 		echo "Cache available percent so small: ${current_cache_available_percent}, trigger_gc"
 		echo
 
@@ -105,7 +113,7 @@ device::handle_custom() {
 	fi
 
 	local current_cache_available_percent=$(device::_get_cache_available_percent ${device_num})
-	if [[ $current_cache_available_percent -le $((100 - $WRITEBACK_PERCENT*3)) ]]; then
+	if [[ $current_cache_available_percent -le "$(_get_lowest_cache_available_percent)" ]]; then
 		echo "Cache available percent so small: ${current_cache_available_percent}"
 		echo
 
@@ -140,6 +148,8 @@ device::check() {
 		device::handle_custom "${device_num}"
 	fi
 }
+
+
 
 main() {
 	local device_num=0

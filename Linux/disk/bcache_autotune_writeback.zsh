@@ -1,5 +1,9 @@
 #!/usr/bin/env zsh
 
+DIR=$(dirname $0)
+
+source "${DIR}/bcache_utils.zsh"
+
 K=1024
 M=$((1024 * $K))
 G=$((1024 * $M))
@@ -133,10 +137,9 @@ device::handle_custom() {
 
 device::check() {
 	local device_num=$1
-
 	local data_size=$(device::_get_data_size $device_num)
 
-	echo $data_size
+	echo "check bcache$device_num, data size: $data_size"
 
 	if [[ $data_size -ge $HIGHWATER_SIZE ]]; then
 		echo $data_size $HIGHWATER_SIZE
@@ -161,8 +164,7 @@ device::check() {
 main() {
 	local device_num=0
 	while true; do
-		for block_cache in /sys/block/bcache*; do
-			device_num=${block_cache#/sys/block/bcache}
+		for device_num in $(bcache::get_device_nums); do
 			device::check $device_num
 		done
 		sleep "${CHECK_DURATION}"

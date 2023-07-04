@@ -5,9 +5,9 @@ M=$((1024 * $K))
 G=$((1024 * $M))
 T=$((1024 * $G))
 
+WRITEBACK_PERCENT=10 # 830 * 5% = 41.5
 LOWWATER_SIZE=$((45 * $M)) # 45M
-HIGHWATER_SIZE=$((61 * $G)) # 61G
-WRITEBACK_PERCENT=7 # 830 * 7% = 58.66
+HIGHWATER_SIZE=$((85 * $G)) # 85G
 WRITE_MAGNIFICATION=3.5
 TIGGER_GC_SLEEP_TIME=15
 CHECK_DURATION=45
@@ -75,6 +75,13 @@ device::handle_highwater() {
 	device::_set_writeback_percent "${device_num}" 0
 }
 
+device::_trigger_bcache_gc() {
+	local device_num=$1
+
+	echo 1 > /sys/block/bcache${device_num}/bcache/cache/internal/trigger_gc
+	sleep "${TIGGER_GC_SLEEP_TIME}" # Add sleep for bcache do gc work
+}
+
 device::_maybe_trigger_bcache_gc() {
 	# lowwater && current_cache_available_percent low
 	# lowwater guaranteed by caller
@@ -85,8 +92,7 @@ device::_maybe_trigger_bcache_gc() {
 		echo "Cache available percent so small: ${current_cache_available_percent}, trigger_gc"
 		echo
 
-		echo 1 > /sys/block/bcache${device_num}/bcache/cache/internal/trigger_gc
-		sleep "${TIGGER_GC_SLEEP_TIME}" # Add sleep for bcache do gc work
+		device::_trigger_bcache_gc "${device_num}"
 	fi
 }
 
@@ -99,6 +105,7 @@ device::handle_lowwater() {
 		return
 	fi
 
+	device::_trigger_bcache_gc "${device_num}"
 	device::_set_writeback_percent "${device_num}" "${WRITEBACK_PERCENT}"
 }
 

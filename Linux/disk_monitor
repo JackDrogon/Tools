@@ -1,0 +1,44 @@
+#!/usr/bin/env zsh
+
+# dstat_cache_arg=$(sudo mdadm -vQD /dev/md1 | grep -o '/dev/n.*' | paste -sd ',')
+# dstat_cache_arg=$(sudo mdadm -vQD /dev/md127 | grep -o '/dev/n.*' | paste -sd ',')
+#mount | grep btrfs | awk '{print $3}'
+
+dstat_cache_arg=""
+
+function get_btrfs_device() {
+	local mount_point=$1
+	local device=$(sudo btrfs filesystem show ${mount_point} | sed '1,2d' | sed '/^$/d' | awk '{print $NF}' | awk -F'/' '{print $NF}' | paste -sd ',')
+	echo $device
+}
+
+function update_by_btrfs_device() {
+	# local mount_points=$(mount | grep btrfs | awk '{print $3}')
+	# echo $mount_points
+	# for mount_point in ${mount_points}; do
+	for mount_point in $(mount | grep btrfs | grep -v /data/Cold | awk '{print $3}'); do
+		local device=$(get_btrfs_device ${mount_point})
+		echo "mount ${device} => ${mount_point}"
+
+		if [ -z "${dstat_cache_arg}" ]; then
+			# dstat_cache_arg empty
+			dstat_cache_arg="${device}"
+		else
+			dstat_cache_arg="${dstat_cache_arg},${device}"
+		fi
+	done
+}
+
+# dstat_cache_arg=$(sudo btrfs filesystem show /home/c/Tmp/USB/nvme_data | sed '1,2d' | sed '/^$/d' | awk '{print $NF}' | awk -F'/' '{print $NF}' | paste -sd ',')
+# root_device=$(sudo btrfs filesystem show / | sed '1,2d' | sed '/^$/d' | awk '{print $NF}' | awk -F'/' '{print $NF}' | paste -sd ',')
+# dstat_cache_arg="${dstat_cache_arg},${root_device},nvme0n1"
+
+function main() {
+	update_by_btrfs_device
+	dstat_cache_arg="${dstat_cache_arg},nvme0n1"
+	echo $dstat_cache_arg
+
+	/bin/bash /home/c/Bin/dstat --nocolor -d -D "${dstat_cache_arg}" | /home/linuxbrew/.linuxbrew/opt/moreutils/bin/ts '[%Y-%m-%d %H:%M:%S]'
+}
+
+main

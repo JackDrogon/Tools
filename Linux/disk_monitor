@@ -7,18 +7,21 @@
 dstat_cache_arg=""
 
 function get_btrfs_device() {
-	local mount_point=$1
-	local device=$(sudo btrfs filesystem show ${mount_point} | sed '1,2d' | sed '/^$/d' | awk '{print $NF}' | awk -F'/' '{print $NF}' | paste -sd ',')
+	local uuid=$1
+	local device=$(sudo btrfs filesystem show ${uuid} | sed '1,2d' | sed '/^$/d' | awk '{print $NF}' | awk -F'/' '{print $NF}' | paste -sd ',')
 	echo $device
 }
 
+function get_btrfs_mount_point() {
+	local uuid=$1
+	local mount_point=$(mount | grep btrfs | grep ${uuid} | awk '{print $3}')
+	echo $mount_point
+}
+
 function update_by_btrfs_device() {
-	# local mount_points=$(mount | grep btrfs | awk '{print $3}')
-	# echo $mount_points
-	# for mount_point in ${mount_points}; do
-	for mount_point in $(mount | grep btrfs | grep -v /data/Cold | awk '{print $3}'); do
-		local device=$(get_btrfs_device ${mount_point})
-		echo "mount ${device} => ${mount_point}"
+	for uuid in $(ls /sys/fs/btrfs | grep -v features); do
+		local device=$(get_btrfs_device ${uuid})
+		echo "mount ${device} => ${uuid}"
 
 		if [ -z "${dstat_cache_arg}" ]; then
 			# dstat_cache_arg empty

@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# This script is used to backup rootfs to a btrfs subvolume by creating a new snapshot and send to nas
+
+# mount rootfs
+root_device="$(df / | sed '1d' | awk '{print $NR}')"
+root_mountpoint="/mnt"
+sudo mount "${root_device}" "${root_mountpoint}"
+
+# create snapshot
+subvol="ubuntu"
+vol="${root_mountpoint}/@${subvol}"
+datetime="$(date +'%Y%m%d%H%M')"
+snapshot_name="${root_mountpoint}/.snapshots/${subvol}-${datetime}"
+echo "backup rootfs ${vol} to ${snapshot_name}"
+sudo btrfs subvolume snapshot -r "${vol}" "${snapshot_name}"
+
+# send snapshot to nas
+sleep 3 # for commit
+parent_snapshot="$(sudo btrfs subvolume list /mnt | grep '.snapshots' | awk '{print $NF}' | sort | tail -2 | head -1)"
+full_parent_snapshot_path="${root_mountpoint}/${parent_snapshot}"
+# remote_incremental_path format is /mnt/data/Data/Backup/CM/RootFS/btrfs/incremental_${subvol}_${parent_snapshot_date}-${datetime}.img
+parent_snapshot_date="$(echo "${parent_snapshot}" | awk -F '-' '{print $NF}')"
+remote_incremental_path="/mnt/data/Data/Backup/CM/RootFS/btrfs/incremental_${subvol}_${parent_snapshot_date}-${datetime}.img"
+echo "sudo btrfs send -p ${full_parent_snapshot_path} ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_incremental_path}'"
+sudo btrfs send -p ${full_parent_snapshot_path} ${snapshot_name} | ssh drogon@nas.local "cat > ${remote_incremental_path}"
+
+ls -ad /mnt/.snapshots/ubuntu* | sort -r | awk 'NR>3 {print $NF}' | xargs -I{} sudo btrfs subvolume delete {}
+sudo umount "${root_mountpoint}"

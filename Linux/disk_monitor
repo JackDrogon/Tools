@@ -38,7 +38,7 @@ function update_by_btrfs_device() {
 
 function main() {
 	update_by_btrfs_device
-	dstat_cache_arg="${dstat_cache_arg},nvme0n1"
+	dstat_cache_arg="${dstat_cache_arg}"
 	echo $dstat_cache_arg
 
 	/bin/bash /home/c/Bin/dstat --nocolor -d -D "${dstat_cache_arg}" | /home/linuxbrew/.linuxbrew/opt/moreutils/bin/ts '[%Y-%m-%d %H:%M:%S]'

@@ -1,29 +1,83 @@
 #!/bin/bash
 
 # This script is used to backup rootfs to a btrfs subvolume by creating a new snapshot and send to nas
+# The snapshot is created by the following steps:
+# 1. mount rootfs
+# 2. create snapshot
+# 3. send snapshot to nas
+# 3.1 every month create a full backup
+# 3.2 every day create an incremental backup
+# 4. delete old snapshots
+# 5. unmount rootfs
 
 # mount rootfs
 root_device="$(df / | sed '1d' | awk '{print $NR}')"
 root_mountpoint="/mnt"
-sudo mount "${root_device}" "${root_mountpoint}"
+
+mount_rootfs() {
+	sudo mount "${root_device}" "${root_mountpoint}"
+}
 
 # create snapshot
 subvol="ubuntu"
-vol="${root_mountpoint}/@${subvol}"
 datetime="$(date +'%Y%m%d%H%M')"
 snapshot_name="${root_mountpoint}/.snapshots/${subvol}-${datetime}"
-echo "backup rootfs ${vol} to ${snapshot_name}"
-sudo btrfs subvolume snapshot -r "${vol}" "${snapshot_name}"
+create_snapshot() {
+	vol="${root_mountpoint}/@${subvol}"
+	echo "backup rootfs ${vol} to ${snapshot_name}"
+	sudo btrfs subvolume snapshot -r "${vol}" "${snapshot_name}"
+}
 
 # send snapshot to nas
-sleep 3 # for commit
-parent_snapshot="$(sudo btrfs subvolume list /mnt | grep '.snapshots' | awk '{print $NF}' | sort | tail -2 | head -1)"
-full_parent_snapshot_path="${root_mountpoint}/${parent_snapshot}"
-# remote_incremental_path format is /mnt/data/Data/Backup/CM/RootFS/btrfs/incremental_${subvol}_${parent_snapshot_date}-${datetime}.img
-parent_snapshot_date="$(echo "${parent_snapshot}" | awk -F '-' '{print $NF}')"
-remote_incremental_path="/mnt/data/Data/Backup/CM/RootFS/btrfs/incremental_${subvol}_${parent_snapshot_date}-${datetime}.img"
-echo "sudo btrfs send -p ${full_parent_snapshot_path} ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_incremental_path}'"
-sudo btrfs send -p ${full_parent_snapshot_path} ${snapshot_name} | ssh drogon@nas.local "cat > ${remote_incremental_path}"
+send_incremental_snapshot_to_nas() {
+	snapshot_subvol=".snapshots/${subvol}"
+	parent_snapshot="$(sudo btrfs subvolume list /mnt | grep ${snapshot_subvol} | awk '{print $NF}' | sort | tail -2 | head -1)"
+	full_parent_snapshot_path="${root_mountpoint}/${parent_snapshot}"
+	# remote_incremental_path format is /mnt/data/Data/Backup/CM/RootFS/btrfs/incremental_${subvol}_${parent_snapshot_date}-${datetime}.img
+	parent_snapshot_date="$(echo "${parent_snapshot}" | awk -F '-' '{print $NF}')"
+	remote_incremental_path="/mnt/data/Data/Backup/CM/RootFS/btrfs/incremental_${subvol}_${parent_snapshot_date}-${datetime}.img"
+	echo "sudo btrfs send -p ${full_parent_snapshot_path} ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_incremental_path}'"
+	sudo btrfs send -p ${full_parent_snapshot_path} ${snapshot_name} | ssh drogon@nas.local "cat > ${remote_incremental_path}"
+}
 
-ls -ad /mnt/.snapshots/ubuntu* | sort -r | awk 'NR>3 {print $NF}' | xargs -I{} sudo btrfs subvolume delete {}
-sudo umount "${root_mountpoint}"
+send_full_snapshot_to_nas() {
+	# sudo btrfs send /mnt/.snapshots/ubuntu-202310091057 | ssh drogon@nas.local 'cat > /mnt/data/Data/Backup/CM/RootFS/btrfs/snapshot_ubuntu_202310091057.img'
+	remote_full_path="/mnt/data/Data/Backup/CM/RootFS/btrfs/snapshot_${subvol}_${datetime}.img"
+	echo "sudo btrfs send ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_full_path}'"
+	sudo btrfs send ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_full_path}'
+}
+
+send_snapshot_to_nas() {
+	# every month create a full backup
+	# every day create an incremental backup
+	# if today is the first day of the month, create a full backup
+	# else create an incremental backup
+	if [ "$(date +'%d')" = "01" ]; then
+		send_full_snapshot_to_nas
+	else
+		send_incremental_snapshot_to_nas
+	fi
+}
+
+# delete old snapshots
+delete_old_snapshots() {
+	# delete old snapshots
+	# keep 3 snapshots
+	# ls -ad /mnt/.snapshots/ubuntu* | sort -r | awk 'NR>3 {print $NF}' | xargs -I{} sudo btrfs subvolume delete {}
+	sudo btrfs subvolume list /mnt | grep '.snapshots/ubuntu' | awk '{print $NF}' | sort -r | tail -n +4 | xargs -I{} sudo btrfs subvolume delete "${root_mountpoint}/{}"
+}
+
+umount_rootfs() {
+	sudo umount "${root_mountpoint}"
+}
+
+main() {
+	mount_rootfs
+	create_snapshot
+	sleep 3 # for commit
+	send_snapshot_to_nas
+	delete_old_snapshots
+	umount_rootfs
+}
+
+main

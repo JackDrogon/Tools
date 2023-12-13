@@ -11,8 +11,9 @@
 # 5. unmount rootfs
 
 # mount rootfs
-root_device="$(df / | sed '1d' | awk '{print $NR}')"
 root_mountpoint="/mnt"
+snapshot_dir="${root_mountpoint}/.snapshots"
+root_device="$(df / | sed '1d' | awk '{print $NR}')"
 
 mount_rootfs() {
 	sudo mount "${root_device}" "${root_mountpoint}"
@@ -21,7 +22,7 @@ mount_rootfs() {
 # create snapshot
 subvol="ubuntu"
 datetime="$(date +'%Y%m%d%H%M')"
-snapshot_name="${root_mountpoint}/.snapshots/${subvol}-${datetime}"
+snapshot_name="${snapshot_dir}/${subvol}-${datetime}"
 create_snapshot() {
 	vol="${root_mountpoint}/@${subvol}"
 	echo "backup rootfs ${vol} to ${snapshot_name}"
@@ -30,6 +31,8 @@ create_snapshot() {
 
 # send snapshot to nas
 send_incremental_snapshot_to_nas() {
+	echo "send incremental snapshot to nas"
+
 	snapshot_subvol=".snapshots/${subvol}"
 	parent_snapshot="$(sudo btrfs subvolume list /mnt | grep ${snapshot_subvol} | awk '{print $NF}' | sort | tail -2 | head -1)"
 	full_parent_snapshot_path="${root_mountpoint}/${parent_snapshot}"
@@ -41,6 +44,8 @@ send_incremental_snapshot_to_nas() {
 }
 
 send_full_snapshot_to_nas() {
+	echo "send full snapshot to nas"
+
 	# sudo btrfs send /mnt/.snapshots/ubuntu-202310091057 | ssh drogon@nas.local 'cat > /mnt/data/Data/Backup/CM/RootFS/btrfs/snapshot_ubuntu_202310091057.img'
 	remote_full_path="/mnt/data/Data/Backup/CM/RootFS/btrfs/snapshot_${subvol}_${datetime}.img"
 	echo "sudo btrfs send ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_full_path}'"
@@ -56,9 +61,10 @@ send_snapshot_to_nas() {
 
 	# every month create a full backup
 	# every day create an incremental backup
-	# if today is the first day of the month, create a full backup
-	# else create an incremental backup
-	if [ "$(date +'%d')" = "01" ]; then
+	# list all snapshot, sort by date, get the latest one
+	# if prev month, send full snapshot
+	# else send incremental snapshot
+	if [ "$(ls -ad /mnt/.snapshots/ubuntu* | sort -r | awk 'NR==1 {print $NF}' | awk -F '-' '{print $NF}' | cut -c 5-6)" != "$(date +'%m')" ]; then
 		send_full_snapshot_to_nas
 	else
 		send_incremental_snapshot_to_nas

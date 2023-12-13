@@ -44,10 +44,16 @@ send_full_snapshot_to_nas() {
 	# sudo btrfs send /mnt/.snapshots/ubuntu-202310091057 | ssh drogon@nas.local 'cat > /mnt/data/Data/Backup/CM/RootFS/btrfs/snapshot_ubuntu_202310091057.img'
 	remote_full_path="/mnt/data/Data/Backup/CM/RootFS/btrfs/snapshot_${subvol}_${datetime}.img"
 	echo "sudo btrfs send ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_full_path}'"
-	sudo btrfs send ${snapshot_name} | ssh drogon@nas.local 'cat > ${remote_full_path}'
+	sudo btrfs send ${snapshot_name} | ssh drogon@nas.local "cat > ${remote_full_path}"
 }
 
 send_snapshot_to_nas() {
+	if [ "$1" = "-f" ]; then
+		echo "force send full snapshot to nas"
+		send_full_snapshot_to_nas
+		return
+	fi
+
 	# every month create a full backup
 	# every day create an incremental backup
 	# if today is the first day of the month, create a full backup
@@ -71,13 +77,14 @@ umount_rootfs() {
 	sudo umount "${root_mountpoint}"
 }
 
+# Add flag if flag '-f' is passed, mean do full snapshot
 main() {
 	mount_rootfs
 	create_snapshot
 	sleep 3 # for commit
-	send_snapshot_to_nas
+	send_snapshot_to_nas "$1"
 	delete_old_snapshots
 	umount_rootfs
 }
 
-main
+main "$*"

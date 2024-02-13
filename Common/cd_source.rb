@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env -S ruby --jit
 
 # TODO: Parallel... ThreadPool
 # TODO: Add list all history

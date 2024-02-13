@@ -3,7 +3,6 @@
 # TODO: Parallel... ThreadPool
 # TODO: Add list all history
 # TODO: Add auto complete
-# TODO: Use thor or opt_parse
 # TODO: Use LevelDB???
 # TODO: Add level command param
 # TODO: 增加一个从command param的入口类
@@ -15,9 +14,9 @@
 # TODO: Add log
 # TODO: Add extension name check
 
-# require 'thor'
 require 'pstore'
 require 'fileutils'
+require 'optparse'
 
 CACHE_FILE = "#{ENV['HOME']}/.cs_cache"
 SOURCE_DIRS = ["#{ENV['HOME']}/Source", "#{ENV['HOME']}/Source/Github"]
@@ -156,21 +155,60 @@ end
 # end
 
 def main()
-  case ARGV[0]
-  when "--list"
+  # Use OptionParser rewrite
+  options = {}
+  option_parser = OptionParser.new do |opts|
+    opts.banner = "Usage: cd_source [options]"
+
+    # --list/-l
+    opts.on("-l", "--list", "List all history") do |v|
+      options[:list] = v
+    end
+
+    # --get/-g REPO
+    opts.on("-g REPO" "--get REPO", "Get repo") do |v|
+      options[:get] = v
+    end
+
+    # --put/-p REPO DIR
+    opts.on("-p REPO DIR", "--put REPO DIR", "Set repo/dir") do |v|
+      options[:put] = v
+    end
+
+    # --delete/-d
+    opts.on("--d KEY", "--delete KEY", "Delete repo") do |v|
+      options[:delete] = v
+    end
+
+    opts.on("-h", "--help", "Show the help message") do
+      puts opts
+      exit
+    end
+  end
+  option_parser.parse!
+  # puts options.inspect
+
+  if options[:list]
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.list()
-  when "--delete"
+  elsif options[:get]
+    repo = options[:get]
+    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, repo, MAX_LEVEL
+    cd_source.search()
+  elsif options[:set]
+    repo = options[:set]
+    dir = ARGV[0]
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
-    cd_source.delete(ARGV[1])
-  when "--set"
+    cd_source.set(repo, dir)
+  elsif options[:delete]
+    repo = options[:delete]
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
-    cd_source.set(ARGV[1], ARGV[2])
-  when "--help", "-h"
-    puts HELP_INFO
-    exit 1
+    cd_source.delete(repo)
   else
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, ARGV[0], MAX_LEVEL
+    # print help message
+    # puts option_parser.help
+    repo = ARGV[0]
+    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, repo, MAX_LEVEL
     cd_source.search()
   end
 end

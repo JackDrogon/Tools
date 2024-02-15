@@ -111,8 +111,12 @@ class CDSource
   end
 
   def get(repo)
-    return if _search_cache(repo)
-    _search_dir repo
+    dir = _search_cache(repo)
+    if dir.nil?
+      _search_dir(repo)
+    else
+      dir
+    end
   end
 
   private
@@ -123,20 +127,20 @@ class CDSource
   # if real path exist, return true
   def _search_cache(repo)
     unless @cache.exist(repo)
-      return false
+      return nil
     end
 
     rpath = real_path(@cache.get(repo))
     if Dir.exist?(rpath) or File.exist?(rpath)
-      puts rpath
-      true
+      rpath
     else
       delete(repo)
-      false
+      nil
     end
   end
 
   def _search_dir(repo)
+    result = nil
     @search_dirs.each do |sdir|
       dirs = [DirOrFile.new(sdir, 1)]
 
@@ -156,8 +160,8 @@ class CDSource
         if name =~ /^#{repo}((\.|(-[0-9]+)).*)?$/
           # puts src, "name", /^#{src}((\.|-?).*)?$/
           if not IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
-            put(repo, d.name)
-            puts d.name
+            result = d.name
+            @cache.put(repo, result)
             return
           end
         end
@@ -174,12 +178,13 @@ class CDSource
 
         # if git, search all file
         if name == repo
-          put(repo, d.name)
-          puts d.name
+          result = d.name
+          @cache.put(repo, result)
           return
         end
       end
     end
+    result
   end
 end
 
@@ -218,13 +223,23 @@ def main()
   # puts options.inspect
 
   cd_source = CDSource.new(CACHE_FILE, SOURCE_DIRS, MAX_LEVEL)
+  # create get closure
+  get = lambda do |repo|
+    dir = cd_source.get(repo)
+    if dir.nil?
+      puts "Not found repo: #{repo}"
+      exit 1
+    else
+      puts dir
+    end
+  end
   if options[:list]
     cd_source.list.each do |k, v|
       puts "#{k} => #{v}"
     end
   elsif options[:get]
     repo = options[:get]
-    cd_source.get(repo)
+    get.call(repo)
   elsif options[:set]
     repo = options[:set]
     dir = ARGV[0]
@@ -236,7 +251,7 @@ def main()
     # print help message
     # puts option_parser.help
     repo = ARGV[0]
-    cd_source.get(repo)
+    get.call(repo)
   end
 end
 

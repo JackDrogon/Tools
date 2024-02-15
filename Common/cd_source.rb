@@ -54,39 +54,39 @@ class Cache
   include Helper
 
   def initialize(cache_file)
-    @cache = PStore.new(cache_file)
+    @store = PStore.new(cache_file)
   end
 
   def get(key)
     value = nil
-    @cache.transaction(true) do
-      value = @cache.fetch(key, nil)
+    @store.transaction(true) do
+      value = @store.fetch(key, nil)
     end
     value
   end
 
   def exist(key)
-    @cache.transaction(true) do
-      @cache.root? key
+    @store.transaction(true) do
+      @store.root? key
     end
   end
 
   def put(key, value)
-    @cache.transaction do
-      @cache[key] = trip_home(value)
+    @store.transaction do
+      @store[key] = trip_home(value)
     end
   end
 
   def delete(key)
-    @cache.transaction do
-      @cache.delete(key)
+    @store.transaction do
+      @store.delete(key)
     end
   end
 
   def list
-    @cache.transaction(true) do
-      @cache.roots.each do |k|
-        puts "#{k} => #{@cache[k]}"
+    @store.transaction(true) do
+      @store.roots.each do |k|
+        puts "#{k} => #{@store[k]}"
       end
     end
   end

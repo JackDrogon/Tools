@@ -50,15 +50,25 @@ module Helper
   end
 end
 
-class CDSource
-  DirOrFile = Struct.new(:name, :depth)
-
+class Cache
   include Helper
 
-  def initialize(cache_file, search_dirs, max_level)
-    @max_level = max_level
-    @search_dirs = (Array === search_dirs) ? search_dirs : [search_dirs]
+  def initialize(cache_file)
     @cache = PStore.new(cache_file)
+  end
+
+  def get(key)
+    value = nil
+    @cache.transaction(true) do
+      value = @cache.fetch(key, nil)
+    end
+    value
+  end
+
+  def exist(key)
+    @cache.transaction(true) do
+      @cache.root? key
+    end
   end
 
   def put(key, value)
@@ -80,51 +90,48 @@ class CDSource
       end
     end
   end
+end
+
+class CDSource
+  DirOrFile = Struct.new(:name, :depth)
+
+  include Helper
+
+  def initialize(cache_file, search_dirs, max_level)
+    @max_level = max_level
+    @search_dirs = (Array === search_dirs) ? search_dirs : [search_dirs]
+    @cache = Cache.new(cache_file)
+  end
+
+  def put(key, value)
+    @cache.put(key, value)
+  end
+
+  def delete(key)
+    @cache.delete(key)
+  end
+
+  def list
+    @cache.list
+  end
 
   def get(repo)
     return if _search_cache(repo)
     _search_dir repo
   end
 
-  def purge
-    @cache.transaction do
-      @cache.roots.each do |k|
-        path = @cache[k]
-        if path == nil
-          @cache.delete(k)
-          next
-        end
-
-        rpath = real_path(path)
-        # File exist check compress file
-        if not Dir.exist?(rpath) and not File.exist?(rpath)
-          @cache.delete(k)
-        end
-      end
-    end
-  end
-
   private
-  def _cache_get(key)
-    value = nil
-    @cache.transaction(true) do
-      value = @cache.fetch(key, nil)
-    end
-    value
-  end
-
-  def _cache_exist(key)
-    @cache.transaction(true) do
-      @cache.root? key
-    end
-  end
-
+  # Search repo in cache file
+  # if not exist, return false
+  # if exist, search real path
+  # if real path not exist, delete cache and return false
+  # if real path exist, return true
   def _search_cache(repo)
-    unless _cache_exist(repo)
+    unless @cache.exist(repo)
       return false
     end
 
-    rpath = real_path(_cache_get(repo))
+    rpath = real_path(@cache.get(repo))
     if Dir.exist?(rpath) or File.exist?(rpath)
       puts rpath
       true

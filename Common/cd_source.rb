@@ -55,8 +55,8 @@ class CDSource
 
   include Helper
 
-  def initialize(cache_file, search_dirs, find_name, max_level)
-    @find_name, @max_level = find_name, max_level
+  def initialize(cache_file, search_dirs, repo, max_level)
+    repo, @max_level = repo, max_level
     @search_dirs = (Array === search_dirs) ? search_dirs : [search_dirs]
     @cache = PStore.new(cache_file)
   end
@@ -89,9 +89,9 @@ class CDSource
     end
   end
 
-  def search
-    return if _search_cache
-    _search_dir
+  def search(repo)
+    return if _search_cache(repo)
+    _search_dir repo
   end
 
   def purge
@@ -119,22 +119,22 @@ class CDSource
     end
   end
 
-  def _search_cache
-    unless _exist(@find_name)
+  def _search_cache(repo)
+    unless _exist(repo)
       return false
     end
 
-    rpath = real_path(get(@find_name))
+    rpath = real_path(get(repo))
     if Dir.exist?(rpath) or File.exist?(rpath)
       puts rpath
       true
     else
-      delete(@find_name)
+      delete(repo)
       false
     end
   end
 
-  def _search_dir
+  def _search_dir(repo)
     @search_dirs.each do |sdir|
       dirs = [DirOrFile.new(sdir, 1)]
 
@@ -151,10 +151,10 @@ class CDSource
 
         name = d.name.split("/").last
         # if name == src_7z || name == src
-        if name =~ /^#{@find_name}((\.|(-[0-9]+)).*)?$/
+        if name =~ /^#{repo}((\.|(-[0-9]+)).*)?$/
           # puts src, "name", /^#{src}((\.|-?).*)?$/
           if not IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
-            put(@find_name, d.name)
+            put(repo, d.name)
             puts d.name
             return
           end
@@ -171,8 +171,8 @@ class CDSource
         end
 
         # if git, search all file
-        if name == @find_name
-          put(@find_name, d.name)
+        if name == repo
+          put(repo, d.name)
           puts d.name
           return
         end
@@ -221,7 +221,7 @@ def main()
   elsif options[:get]
     repo = options[:get]
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, repo, MAX_LEVEL
-    cd_source.search()
+    cd_source.search(repo)
   elsif options[:set]
     repo = options[:set]
     dir = ARGV[0]
@@ -236,7 +236,7 @@ def main()
     # puts option_parser.help
     repo = ARGV[0]
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, repo, MAX_LEVEL
-    cd_source.search()
+    cd_source.search(repo)
   end
 end
 

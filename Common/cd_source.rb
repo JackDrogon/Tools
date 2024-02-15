@@ -77,11 +77,13 @@ class Cache
   end
 
   def list
+    result = []
     @store.transaction(true) do
       @store.roots.each do |k|
-        puts "#{k} => #{@store[k]}"
+        result << [k, @store[k]]
       end
     end
+    result
   end
 end
 
@@ -217,7 +219,9 @@ def main()
 
   cd_source = CDSource.new(CACHE_FILE, SOURCE_DIRS, MAX_LEVEL)
   if options[:list]
-    cd_source.list()
+    cd_source.list.each do |k, v|
+      puts "#{k} => #{v}"
+    end
   elsif options[:get]
     repo = options[:get]
     cd_source.get(repo)

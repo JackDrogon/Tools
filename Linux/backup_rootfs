@@ -53,7 +53,8 @@ send_full_snapshot_to_nas() {
 }
 
 send_snapshot_to_nas() {
-	if [ "$1" = "-f" ]; then
+	local force="$1"
+	if [ "${force}" = "true" ]; then
 		echo "force send full snapshot to nas"
 		send_full_snapshot_to_nas
 		return
@@ -84,11 +85,35 @@ umount_rootfs() {
 }
 
 # Add flag if flag '-f' is passed, mean do full snapshot
+# Add flag if flag '--only-create-snapshot' is passed, mean only do create snapshot
 main() {
+	local force=false
+	local only_create_snapshot=false
+
+	case "$1" in
+		-f)
+			force=true
+			shift
+			;;
+		--only-create-snapshot)
+			only_create_snapshot=true
+			shift
+			;;
+		*)
+			;;
+	esac
+
+	if [ "${only_create_snapshot}" = true ]; then
+		mount_rootfs
+		create_snapshot
+		umount_rootfs
+		return
+	fi
+
 	mount_rootfs
 	create_snapshot
 	sleep 3 # for commit
-	send_snapshot_to_nas "$1"
+	send_snapshot_to_nas "${force}"
 	delete_old_snapshots
 	umount_rootfs
 }

@@ -55,18 +55,10 @@ class CDSource
 
   include Helper
 
-  def initialize(cache_file, search_dirs, repo, max_level)
-    repo, @max_level = repo, max_level
+  def initialize(cache_file, search_dirs, max_level)
+    @max_level = max_level
     @search_dirs = (Array === search_dirs) ? search_dirs : [search_dirs]
     @cache = PStore.new(cache_file)
-  end
-
-  def get(key)
-    value = nil
-    @cache.transaction(true) do
-      value = @cache.fetch(key, nil)
-    end
-    value
   end
 
   def put(key, value)
@@ -89,7 +81,7 @@ class CDSource
     end
   end
 
-  def search(repo)
+  def get(repo)
     return if _search_cache(repo)
     _search_dir repo
   end
@@ -113,18 +105,26 @@ class CDSource
   end
 
   private
-  def _exist(key)
+  def _cache_get(key)
+    value = nil
+    @cache.transaction(true) do
+      value = @cache.fetch(key, nil)
+    end
+    value
+  end
+
+  def _cache_exist(key)
     @cache.transaction(true) do
       @cache.root? key
     end
   end
 
   def _search_cache(repo)
-    unless _exist(repo)
+    unless _cache_exist(repo)
       return false
     end
 
-    rpath = real_path(get(repo))
+    rpath = real_path(_cache_get(repo))
     if Dir.exist?(rpath) or File.exist?(rpath)
       puts rpath
       true
@@ -215,28 +215,24 @@ def main()
   option_parser.parse!
   # puts options.inspect
 
+  cd_source = CDSource.new(CACHE_FILE, SOURCE_DIRS, MAX_LEVEL)
   if options[:list]
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.list()
   elsif options[:get]
     repo = options[:get]
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, repo, MAX_LEVEL
-    cd_source.search(repo)
+    cd_source.get(repo)
   elsif options[:set]
     repo = options[:set]
     dir = ARGV[0]
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.put(repo, dir)
   elsif options[:delete]
     repo = options[:delete]
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
     cd_source.delete(repo)
   else
     # print help message
     # puts option_parser.help
     repo = ARGV[0]
-    cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, repo, MAX_LEVEL
-    cd_source.search(repo)
+    cd_source.get(repo)
   end
 end
 

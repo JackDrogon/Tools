@@ -34,8 +34,14 @@ module Helper
     v.sub "~", ENV["HOME"]
   end
 
-  def is_git?(dir)
-    Dir.exist? "#{dir}/.git"
+  def git?(dir)
+    git_dir = "#{dir}/.git"
+    # origin git repo dir or git work tree
+    Dir.exist?(git_dir) or File.exist?(git_dir)
+  end
+
+  def cs_source?(dir)
+    File.exist? "#{dir}/.cs_source"
   end
 
   def is_7z?(file)
@@ -140,7 +146,6 @@ class CDSource
   end
 
   def _search_dir(repo)
-    result = nil
     @search_dirs.each do |sdir|
       dirs = [DirOrFile.new(sdir, 1)]
 
@@ -152,39 +157,42 @@ class CDSource
       #  if not git, add all sub dir
       # file: if 7z, skip
       while !dirs.empty?
-        d = dirs.shift
-        next if d.depth > @max_level
+        dir_or_file = dirs.shift
+        next if dir_or_file.depth > @max_level
 
-        name = d.name.split("/").last
-        # if name == src_7z || name == src
-        if name =~ /^#{repo}((\.|(-[0-9]+)).*)?$/
-          # puts src, "name", /^#{src}((\.|-?).*)?$/
-          if not IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
-            result = d.name
-            @cache.put(repo, result)
-            return
+        name = dir_or_file.name.split("/").last
+        path = dir_or_file.name
+
+        # dir_or_file is dir
+        if File.directory? path
+          if git?(path) or cs_source?(path)
+            if name == repo
+              @cache.put(repo, path)
+              return path
+            end
+
+            # not recursive search in git dir or marked cs_source
+            next
           end
-        end
 
-        # if not dir just file, skip
-        next unless File.directory? d.name
-
-        # now d is dir
-        # if not git, add all sub dir
-        if !is_git?(d.name)
-          Dir["#{d.name}/*"].each{|dir| dirs << DirOrFile.new(dir, d.depth+1)}
+          # if not git, add all sub dir
+          Dir["#{path}/*"].each do |dir|
+            dirs << DirOrFile.new(dir, dir_or_file.depth+1)
+          end
           next
         end
 
-        # if git, search all file
-        if name == repo
-          result = d.name
-          @cache.put(repo, result)
-          return
+        # dir_or_file is file
+        # if name == src_7z || name == src
+        if name =~ /^#{repo}((\.|(-[0-9]+)).*)?$/
+          # puts src, "name", /^#{src}((\.|-?).*)?$/
+          unless IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
+            @cache.put(repo, path)
+            return path
+          end
         end
       end
     end
-    result
   end
 end
 

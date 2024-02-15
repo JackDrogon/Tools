@@ -51,25 +51,25 @@ module Helper
 end
 
 class CDSource
-  DirOrFile = Struct.new(:name, :level)
+  DirOrFile = Struct.new(:name, :depth)
 
   include Helper
 
-  def initialize(cache_file, search_dirs, find_name, level)
-    @cache_file, @find_name, @max_level = cache_file, find_name, level
-    @search_dirs = Array === search_dirs ? search_dirs : [search_dirs]
-    @cache = PStore.new @cache_file
+  def initialize(cache_file, search_dirs, find_name, max_level)
+    @find_name, @max_level = find_name, max_level
+    @search_dirs = (Array === search_dirs) ? search_dirs : [search_dirs]
+    @cache = PStore.new(cache_file)
   end
 
   def get(key)
-    value=nil
+    value = nil
     @cache.transaction(true) do
       value = @cache.fetch(key, nil)
     end
     value
   end
 
-  def set(key, value)
+  def put(key, value)
     @cache.transaction do
       @cache[key] = trip_home(value)
     end
@@ -81,7 +81,7 @@ class CDSource
     end
   end
 
-  def list()
+  def list
     @cache.transaction(true) do
       @cache.roots.each do |k|
         puts "#{k} => #{@cache[k]}"
@@ -90,69 +90,96 @@ class CDSource
   end
 
   def search
-    return if search_cache
-    search_dir
+    return if _search_cache
+    _search_dir
+  end
+
+  def purge
+    @cache.transaction do
+      @cache.roots.each do |k|
+        path = @cache[k]
+        if path == nil
+          @cache.delete(k)
+          next
+        end
+
+        rpath = real_path(path)
+        # File exist check compress file
+        if not Dir.exist?(rpath) and not File.exist?(rpath)
+          @cache.delete(k)
+        end
+      end
+    end
   end
 
   private
-  def exist(key)
+  def _exist(key)
     @cache.transaction(true) do
       @cache.root? key
     end
   end
 
-  def search_cache
-    if exist(@find_name)
-      rpath = real_path(get(@find_name))
-      if Dir.exist?(rpath) or File.exist?(rpath)
-        puts rpath
-        true
-      else
-        delete(@find_name)
-        false
-      end
+  def _search_cache
+    unless _exist(@find_name)
+      return false
+    end
+
+    rpath = real_path(get(@find_name))
+    if Dir.exist?(rpath) or File.exist?(rpath)
+      puts rpath
+      true
     else
+      delete(@find_name)
       false
     end
   end
 
-  def search_dir
+  def _search_dir
     @search_dirs.each do |sdir|
       dirs = [DirOrFile.new(sdir, 1)]
 
+      # BFS search dir and file
+      # Rules
+      # 1.1 depth > max_level skip
+      # file/dir
+      # dir:
+      #  if not git, add all sub dir
+      # file: if 7z, skip
       while !dirs.empty?
         d = dirs.shift
-        next if d.level > @max_level
+        next if d.depth > @max_level
 
         name = d.name.split("/").last
         # if name == src_7z || name == src
         if name =~ /^#{@find_name}((\.|(-[0-9]+)).*)?$/
           # puts src, "name", /^#{src}((\.|-?).*)?$/
           if not IGNORE_FILEEXTENSIONS.include? $1 # 应该主动识别是不是压缩文件
-            set(@find_name, d.name)
+            put(@find_name, d.name)
             puts d.name
             return
           end
         end
 
+        # if not dir just file, skip
         next unless File.directory? d.name
 
-        if is_git?(d.name)
-          if name == @find_name
-            set(@find_name, d.name)
-            puts d.name
-            return
-          end
-        else
-          Dir["#{d.name}/*"].each{|dir| dirs << DirOrFile.new(dir, d.level+1)}
+        # now d is dir
+        # if not git, add all sub dir
+        if !is_git?(d.name)
+          Dir["#{d.name}/*"].each{|dir| dirs << DirOrFile.new(dir, d.depth+1)}
+          next
+        end
+
+        # if git, search all file
+        if name == @find_name
+          put(@find_name, d.name)
+          puts d.name
+          return
         end
       end
     end
   end
 end
-
-# class CDSourceCLI < Thor
-# end
 
 def main()
   # Use OptionParser rewrite
@@ -199,7 +226,7 @@ def main()
     repo = options[:set]
     dir = ARGV[0]
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL
-    cd_source.set(repo, dir)
+    cd_source.put(repo, dir)
   elsif options[:delete]
     repo = options[:delete]
     cd_source = CDSource.new CACHE_FILE, SOURCE_DIRS, nil, MAX_LEVEL

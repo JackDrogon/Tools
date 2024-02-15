@@ -13,6 +13,7 @@
 # TODO: dump, first bak && check file
 # TODO: Add log
 # TODO: Add extension name check
+# TODO: Add purge
 
 require 'pstore'
 require 'fileutils'
@@ -21,14 +22,6 @@ require 'optparse'
 CACHE_FILE = "#{ENV['HOME']}/.cs_cache"
 SOURCE_DIRS = ["#{ENV['HOME']}/Source", "#{ENV['HOME']}/Source/Github"]
 MAX_LEVEL = 6
-
-HELP_INFO  = <<END
---delete key
---set key dir
---list
---purge
---help/-h
-END
 
 IGNORE_FILEEXTENSIONS = [".c", ".cc", ".cpp", ".h", ".hpp"]
 

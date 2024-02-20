@@ -250,8 +250,8 @@ def main()
   elsif options[:get]
     repo = options[:get]
     get.call(repo)
-  elsif options[:set]
-    repo = options[:set]
+  elsif options[:put]
+    repo = options[:put]
     dir = ARGV[0]
     cd_source.put(repo, dir)
   elsif options[:delete]

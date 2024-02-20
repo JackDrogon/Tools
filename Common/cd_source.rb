@@ -20,7 +20,7 @@ require 'fileutils'
 require 'optparse'
 
 CACHE_FILE = "#{ENV['HOME']}/.cs_cache"
-SOURCE_DIRS = ["#{ENV['HOME']}/Source", "#{ENV['HOME']}/Source/Github"]
+SOURCE_DIRS = ["#{ENV['HOME']}/Source", "#{ENV['HOME']}/Source/GitHub"]
 MAX_LEVEL = 6
 
 IGNORE_FILEEXTENSIONS = [".c", ".cc", ".cpp", ".h", ".hpp"]
@@ -151,8 +151,8 @@ class CDSource
 
       # BFS search dir and file
       # Rules
-      # 1.1 depth > max_level skip
-      # file/dir
+      # 1. depth > max_level skip
+      # 2. file/dir
       # dir:
       #  if not git, add all sub dir
       # file: if 7z, skip
@@ -193,6 +193,8 @@ class CDSource
         end
       end
     end
+
+    nil
   end
 end
 

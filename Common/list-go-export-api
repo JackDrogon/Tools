@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+rg '^func' --no-filename --no-line-number | tee a.log | ruby <<-EORUBY
+puts STDIN.lines.to_a
+STDIN.each_line do |line|
+  puts line
+  line.strip!
+  first = line[5..-1][0]
+  is_class_function = (first == '(')
+  # puts "#{line} => #{is_class_function}"
+  unless is_class_function
+    if first == first.upcase
+      # puts "#{line} => #{is_class_function}"
+      puts line
+    end
+
+    next
+  end
+
+  # puts "#{line} => #{line.gsub(/^[^)]*\) /, '')}"
+  class_func_first = line.gsub(/^[^)]*\) /, '')
+  if class_func_first == class_func_first.upcase
+    puts line
+  end
+end
+EORUBY

@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# check args > 0, first is dir
+if [ $# -eq 0 ]; then
+	echo "$0: missing directory"
+	exit 1
+fi
+
+# check if dir exists
+DIR=$1
+if [ ! -d "$1" ]; then
+	echo "$0: ${DIR} is not a directory"
+	exit 2
+fi
+
+COLD_PATH="/data/cold$(pwd -P)"
+
+
+# do the move
+mkdir -p "$COLD_PATH"
+
+echo rsync -ac --whole-file "$DIR" "$COLD_PATH"
+rsync -ac --whole-file "$DIR" "$COLD_PATH"
+
+rm -rf "$DIR"
+
+echo ln -sf "$COLD_PATH/${DIR}" .
+ln -sf "$COLD_PATH/${DIR}" .

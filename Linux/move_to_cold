@@ -19,7 +19,7 @@ COLD_PATH="/data/cold$(pwd -P)"
 # do the move
 mkdir -p "$COLD_PATH"
 
-echo rsync -ac --whole-file "$DIR" "$COLD_PATH"
+echo rsync -ac --whole-file --delete "$DIR" "$COLD_PATH"
 rsync -ac --whole-file "$DIR" "$COLD_PATH"
 
 rm -rf "$DIR"

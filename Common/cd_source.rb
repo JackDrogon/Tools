@@ -154,6 +154,7 @@ class CDSource
       # 1. depth > max_level skip
       # 2. file/dir
       # dir:
+      #  name == repo return
       #  if not git, add all sub dir
       # file: if 7z, skip
       while !dirs.empty?
@@ -165,19 +166,17 @@ class CDSource
 
         # dir_or_file is dir
         if File.directory? path
-          if git?(path) or cs_source?(path)
-            if name == repo
-              @cache.put(repo, path)
-              return path
-            end
-
-            # not recursive search in git dir or marked cs_source
-            next
+          if name == repo
+            @cache.put(repo, path)
+            return path
           end
 
-          # if not git, add all sub dir
-          Dir["#{path}/*"].each do |dir|
-            dirs << DirOrFile.new(dir, dir_or_file.depth+1)
+          unless git?(path) or cs_source?(path)
+            # not recursive search in git dir or marked cs_source
+            # if not git, add all sub dir
+            Dir["#{path}/*"].each do |dir|
+              dirs << DirOrFile.new(dir, dir_or_file.depth+1)
+            end
           end
           next
         end

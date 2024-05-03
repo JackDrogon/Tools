@@ -13,7 +13,7 @@ if [ ! -d "$1" ]; then
 	exit 2
 fi
 
-COLD_PATH="/data/cold$(pwd -P)"
+COLD_PATH="/data/Cold$(pwd -P)"
 
 
 # do the move

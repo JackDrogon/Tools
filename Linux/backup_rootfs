@@ -65,7 +65,11 @@ send_snapshot_to_nas() {
 	# list all snapshot, sort by date, get the latest one
 	# if prev month, send full snapshot
 	# else send incremental snapshot
-	if [ "$(ls -ad /mnt/.snapshots/ubuntu* | sort -r | awk 'NR==1 {print $NF}' | awk -F '-' '{print $NF}' | cut -c 5-6)" != "$(date +'%m')" ]; then
+	# if only one snapshot exists, send full snapshot
+	if [ "$(ls -ad /mnt/.snapshots/ubuntu* | wc -l)" -eq 1 ]; then
+		send_full_snapshot_to_nas
+	elif [ "$(ls -ad /mnt/.snapshots/ubuntu* | sort -r | awk 'NR==2 {print $NF}' | awk -F '-' '{print $NF}' | cut -c 5-6)" != "$(date +'%m')" ]; then
+		# NR == 2, get the second latest snapshot, NR == 1 is the latest snapshot(created by this script)
 		send_full_snapshot_to_nas
 	else
 		send_incremental_snapshot_to_nas
@@ -77,7 +81,7 @@ delete_old_snapshots() {
 	# delete old snapshots
 	# keep 3 snapshots
 	# ls -ad /mnt/.snapshots/ubuntu* | sort -r | awk 'NR>3 {print $NF}' | xargs -I{} sudo btrfs subvolume delete {}
-	sudo btrfs subvolume list /mnt | grep '.snapshots/ubuntu' | awk '{print $NF}' | sort -r | tail -n +4 | xargs -I{} sudo btrfs subvolume delete "${root_mountpoint}/{}"
+	sudo btrfs subvolume list /mnt | grep '.snapshots/ubuntu' | awk '{print $NF}' | sort -r | tail -n +4 | xargs -I{} sudo btrfs subvolume delete -c -v "${root_mountpoint}/{}"
 }
 
 umount_rootfs() {
@@ -85,12 +89,24 @@ umount_rootfs() {
 }
 
 # Add flag if flag '-f' is passed, mean do full snapshot
-# Add flag if flag '--only-create-snapshot' is passed, mean only do create snapshot
+# Add flag if flag '--only-create-snapshot' is passed, mean only do create snapshot, don't send to nas
+usage() {
+	echo "Usage: $0 [-h] [-f] [--only-create-snapshot]"
+	echo "Options:"
+	echo "  -h: show this help message"
+	echo "  -f: force to create full snapshot"
+	echo "  --only-create-snapshot: only create snapshot, don't send to nas"
+}
+
 main() {
 	local force=false
 	local only_create_snapshot=false
 
 	case "$1" in
+		-h)
+			usage
+			return
+			;;
 		-f)
 			force=true
 			shift
@@ -103,19 +119,15 @@ main() {
 			;;
 	esac
 
-	if [ "${only_create_snapshot}" = true ]; then
-		mount_rootfs
-		create_snapshot
-		umount_rootfs
-		return
-	fi
-
 	mount_rootfs
 	create_snapshot
-	sleep 3 # for commit
-	send_snapshot_to_nas "${force}"
-	delete_old_snapshots
+	if [ "${only_create_snapshot}" = false ]; then
+		sleep 3 # for commit
+		send_snapshot_to_nas "${force}"
+		delete_old_snapshots
+	fi
 	umount_rootfs
+
 }
 
 main "$*"

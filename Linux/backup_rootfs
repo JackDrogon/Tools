@@ -19,6 +19,12 @@ mount_rootfs() {
 	sudo mount "${root_device}" "${root_mountpoint}"
 }
 
+# TODO(Drogon): check mounted, cut /proc/mounts | awk
+# if [ "$(df | grep "${root_mountpoint}" | wc -l)" -eq 0 ]; then
+# 	echo "rootfs is not mounted"
+# 	exit 1
+# fi
+
 # create snapshot
 subvol="ubuntu"
 datetime="$(date +'%Y%m%d%H%M')"
@@ -103,20 +109,19 @@ main() {
 	local only_create_snapshot=false
 
 	case "$1" in
-		-h)
-			usage
-			return
-			;;
-		-f)
-			force=true
-			shift
-			;;
-		--only-create-snapshot)
-			only_create_snapshot=true
-			shift
-			;;
-		*)
-			;;
+	-h)
+		usage
+		return
+		;;
+	-f)
+		force=true
+		shift
+		;;
+	--only-create-snapshot)
+		only_create_snapshot=true
+		shift
+		;;
+	*) ;;
 	esac
 
 	mount_rootfs
